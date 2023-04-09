@@ -7,9 +7,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/briandowns/spinner"
+	"github.com/fatih/color"
 )
 
 type Message struct {
@@ -82,33 +87,52 @@ func main() {
 
 	done := make(chan bool)
 
+	var clearFuncs = map[string]func(){
+		"linux": func() {
+			cmd := exec.Command("clear")
+			cmd.Stdout = os.Stdout
+			cmd.Run()
+		},
+		"darwin": func() {
+			cmd := exec.Command("clear")
+			cmd.Stdout = os.Stdout
+			cmd.Run()
+		},
+	}
+
+	clearFunc, ok := clearFuncs[runtime.GOOS]
+	if ok {
+		clearFunc()
+	} else {
+		panic("Your platform is unsupported! I can't clear terminal screen :(")
+	}
+
+	s := spinner.New(spinner.CharSets[35], 100*time.Millisecond)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		loadingChars := []string{"-", "\\", "|", "/"}
-		i := 0
 		for {
 			select {
 			case <-done:
 				return
 			default:
-				fmt.Printf("\rLoading %s", loadingChars[i])
-				i = (i + 1) % len(loadingChars)
-				time.Sleep(100 * time.Millisecond)
+				s.Start()
 			}
 		}
 	}()
 
 	resp, err := client.Do(req)
-	done <- true // Signal that the API call is completed
+	done <- true
 	if err != nil {
 		fmt.Println("Error making API request:", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
-	wg.Wait() // Wait for the loading indicator goroutine to finish
+	wg.Wait()
+	s.Stop()
 	fmt.Println("\rLoading completed")
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -132,6 +156,13 @@ func main() {
 
 	generatedText := completionResponse.Choices[0].Message.Content
 
-	fmt.Println("Answer:")
-	fmt.Println(generatedText)
+	c := color.New(color.FgGreen).Add(color.Underline)
+
+	fmt.Println("")
+	c.Println("Answer:")
+	fmt.Println("")
+	color.Unset()
+	a := color.New(color.FgBlue).Add(color.Bold)
+	a.Println(generatedText)
+
 }
