@@ -49,7 +49,7 @@ func main() {
 	}
 
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./openai_completions \"your prompt here\"")
+		fmt.Println("Usage: ./gpt \"your prompt here\"")
 		os.Exit(1)
 	}
 
